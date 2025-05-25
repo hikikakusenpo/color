@@ -1,74 +1,123 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>色味識別アプリ</title>
-    <style>
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        video { display: none; }
-        canvas { position: absolute; }
-        #colorDisplay { position: absolute; bottom: 20px; padding: 10px; background: rgba(255, 255, 255, 0.8); }
-        .cursor { width: 20px; height: 20px; border: 2px solid red; border-radius: 50%; position: absolute; pointer-events: none; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>色味識別アプリ</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    video { display: none; }
+    canvas { position: absolute; top: 0; left: 0; }
+    #colorDisplay {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      font-family: sans-serif;
+      font-size: 16px;
+    }
+    .cursor {
+      width: 20px;
+      height: 20px;
+      border: 2px solid red;
+      border-radius: 50%;
+      position: absolute;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
-    <video id="video" autoplay></video>
-    <canvas id="canvas"></canvas>
-    <div id="colorDisplay"></div>
-    <div class="cursor" id="cursor"></div>
+  <video id="video" autoplay></video>
+  <canvas id="canvas"></canvas>
+  <div id="colorDisplay">読み込み中...</div>
+  <div class="cursor" id="cursor"></div>
 
-    <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-        const colorDisplay = document.getElementById('colorDisplay');
-        const cursor = document.getElementById('cursor');
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    const colorDisplay = document.getElementById('colorDisplay');
+    const cursor = document.getElementById('cursor');
 
-        navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { exact: "environment" } }
-        })
-        .then(stream => {
-            video.srcObject = stream;
-            video.play();
-            requestAnimationFrame(updateCanvas);
-        })
-        .catch(error => {
-            console.error("カメラアクセスに失敗しました:", error);
-            alert("カメラにアクセスできません。設定を確認してください。");
-        });
+    let cursorX = 0;
+    let cursorY = 0;
 
-        video.addEventListener('loadedmetadata', () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-        });
+    document.addEventListener('mousemove', (event) => {
+      cursorX = event.clientX;
+      cursorY = event.clientY;
+      cursor.style.left = `${cursorX - 10}px`;
+      cursor.style.top = `${cursorY - 10}px`;
+    });
 
-        function updateCanvas() {
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const x = Math.floor(canvas.width / 2);
-            const y = Math.floor(canvas.height / 2);
-            const pixelData = context.getImageData(x, y, 1, 1).data;
-            const color = identifyColor(pixelData);
-            colorDisplay.textContent = color;
-            requestAnimationFrame(updateCanvas);
-        }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } })
+      .then(stream => {
+        video.srcObject = stream;
+        video.play();
+        requestAnimationFrame(updateCanvas);
+      })
+      .catch(error => {
+        console.error("カメラアクセスに失敗しました:", error);
+        alert("カメラにアクセスできません。設定を確認してください。");
+      });
 
-        function identifyColor([r, g, b]) {
-            if (r > 150 && g < 100 && b < 100) return '赤';
-            if (r > 150 && g > 100 && b < 100) return 'オレンジ';
-            if (g > 150 && r < 100 && b < 100) return '緑';
-            if (g > 150 && b < 100) return '黄色';
-            if (g > 150 && b > 150 && r < 100) return '水色';
-            if (b > 150 && r < 100 && g < 100) return '青';
-            if (r < 100 && g < 100 && b > 150) return '青紫';
-            if (r < 100 && g < 100 && b < 100) return '赤紫';
-            return '不明';
-        }
+    video.addEventListener('loadedmetadata', () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    });
 
-        document.addEventListener('mousemove', (event) => {
-            cursor.style.left = `${event.clientX - 10}px`;
-            cursor.style.top = `${event.clientY - 10}px`;
-        });
-    </script>
+    function updateCanvas() {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor(cursorX - rect.left);
+      const y = Math.floor(cursorY - rect.top);
+
+      let pixelData = [0, 0, 0];
+      if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
+        pixelData = context.getImageData(x, y, 1, 1).data;
+      }
+
+      const colorName = identifyColor(pixelData);
+      colorDisplay.textContent = `${colorName} (R:${pixelData[0]} G:${pixelData[1]} B:${pixelData[2]})`;
+
+      requestAnimationFrame(updateCanvas);
+    }
+
+    function rgbToHsv(r, g, b) {
+      r /= 255;
+      g /= 255;
+      b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const delta = max - min;
+      let h = 0;
+
+      if (delta === 0) h = 0;
+      else if (max === r) h = 60 * (((g - b) / delta) % 6);
+      else if (max === g) h = 60 * ((b - r) / delta + 2);
+      else if (max === b) h = 60 * ((r - g) / delta + 4);
+
+      if (h < 0) h += 360;
+      const s = max === 0 ? 0 : delta / max;
+      const v = max;
+
+      return [h, s, v];
+    }
+
+    function identifyColor([r, g, b]) {
+      const [h, s, v] = rgbToHsv(r, g, b);
+      if (v < 0.1 || s < 0.1) return "不明"; // 黒や白っぽいのは分類しない
+
+      if (h < 15 || h >= 345) return "赤";
+      if (h < 45) return "オレンジ";
+      if (h < 65) return "黄色";
+      if (h < 170) return "緑";
+      if (h < 200) return "水色";
+      if (h < 255) return "青";
+      if (h < 290) return "青紫";
+      if (h < 345) return "赤紫";
+      return "不明";
+    }
+  </script>
 </body>
 </html>

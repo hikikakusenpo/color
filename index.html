@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>色味識別アプリ</title>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        video { display: none; }
+        canvas { position: absolute; }
+        #colorDisplay { position: absolute; bottom: 20px; padding: 10px; background: rgba(255, 255, 255, 0.8); }
+        .cursor { width: 20px; height: 20px; border: 2px solid red; border-radius: 50%; position: absolute; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <video id="video" autoplay></video>
+    <canvas id="canvas"></canvas>
+    <div id="colorDisplay"></div>
+    <div class="cursor" id="cursor"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const colorDisplay = document.getElementById('colorDisplay');
+        const cursor = document.getElementById('cursor');
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                video.play();
+                requestAnimationFrame(updateCanvas);
+            })
+            .catch(error => {
+                console.error("カメラアクセスに失敗しました:", error);
+                alert("カメラにアクセスできません。設定を確認してください。");
+            });
+
+        video.addEventListener('loadedmetadata', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+        });
+
+        function updateCanvas() {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const x = canvas.width / 2;
+            const y = canvas.height / 2;
+            const pixelData = context.getImageData(x, y, 1, 1).data;
+            const color = identifyColor(pixelData);
+            colorDisplay.textContent = color;
+            requestAnimationFrame(updateCanvas);
+        }
+
+        function identifyColor([r, g, b]) {
+            if (r > 100 && g < 100 && b < 100) return '赤';
+            if (r > 100 && g > 100 && b < 100) return 'オレンジ';
+            if (g > 100 && b < 100) return '黄色';
+            if (g > 100 && r < 100) return '黄緑';
+            if (b > 100 && g > 100) return '水色';
+            if (b > 100 && r < 100) return '青';
+            if (r < 100 && g < 100 && b > 100) return '青紫';
+            if (r < 100 && g < 100 && b < 100) return '赤紫';
+            return '不明';
+        }
+
+        document.addEventListener('mousemove', (event) => {
+            cursor.style.left = `${event.clientX - 10}px`;
+            cursor.style.top = `${event.clientY - 10}px`;
+        });
+    </script>
+</body>
+</html>

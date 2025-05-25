@@ -25,16 +25,18 @@
         const colorDisplay = document.getElementById('colorDisplay');
         const cursor = document.getElementById('cursor');
 
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                video.srcObject = stream;
-                video.play();
-                requestAnimationFrame(updateCanvas);
-            })
-            .catch(error => {
-                console.error("カメラアクセスに失敗しました:", error);
-                alert("カメラにアクセスできません。設定を確認してください。");
-            });
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: "environment" } }
+        })
+        .then(stream => {
+            video.srcObject = stream;
+            video.play();
+            requestAnimationFrame(updateCanvas);
+        })
+        .catch(error => {
+            console.error("カメラアクセスに失敗しました:", error);
+            alert("カメラにアクセスできません。設定を確認してください。");
+        });
 
         video.addEventListener('loadedmetadata', () => {
             canvas.width = video.videoWidth;
@@ -43,8 +45,8 @@
 
         function updateCanvas() {
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const x = canvas.width / 2;
-            const y = canvas.height / 2;
+            const x = Math.floor(canvas.width / 2);
+            const y = Math.floor(canvas.height / 2);
             const pixelData = context.getImageData(x, y, 1, 1).data;
             const color = identifyColor(pixelData);
             colorDisplay.textContent = color;
@@ -52,13 +54,13 @@
         }
 
         function identifyColor([r, g, b]) {
-            if (r > 100 && g < 100 && b < 100) return '赤';
-            if (r > 100 && g > 100 && b < 100) return 'オレンジ';
-            if (g > 100 && b < 100) return '黄色';
-            if (g > 100 && r < 100) return '黄緑';
-            if (b > 100 && g > 100) return '水色';
-            if (b > 100 && r < 100) return '青';
-            if (r < 100 && g < 100 && b > 100) return '青紫';
+            if (r > 150 && g < 100 && b < 100) return '赤';
+            if (r > 150 && g > 100 && b < 100) return 'オレンジ';
+            if (g > 150 && r < 100 && b < 100) return '緑';
+            if (g > 150 && b < 100) return '黄色';
+            if (g > 150 && b > 150 && r < 100) return '水色';
+            if (b > 150 && r < 100 && g < 100) return '青';
+            if (r < 100 && g < 100 && b > 150) return '青紫';
             if (r < 100 && g < 100 && b < 100) return '赤紫';
             return '不明';
         }
